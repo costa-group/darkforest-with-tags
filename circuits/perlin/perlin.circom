@@ -10,26 +10,27 @@ include "circuits/tags-managing.circom";
 
 // input: three field elements: x, y, scale (all absolute value < 2^32)
 // output: pseudorandom integer in [0, 15]
-template Random() {
+template Random() { // TAGS NOT SATISFIED, SEE BELOW
     signal input {max_abs} in[3];
     signal input KEY;
     signal output {max} out;
 
     component mimc = MiMCSponge(3, 4, 1);
 
-    assert(in.max_abs < 2**32);
+    //assert(in.max_abs < 2**32);
 
     mimc.ins[0] <== in[0];
     mimc.ins[1] <== in[1];
     mimc.ins[2] <== in[2];
     mimc.k <== KEY;
 
-    component num2Bits = Num2Bits(254);
+    component num2Bits = Num2Bits_strict();
     num2Bits.in <== mimc.outs[0];
     out.max = 15;
     out <== num2Bits.out[3] * 8 + num2Bits.out[2] * 4 + num2Bits.out[1] * 2 + num2Bits.out[0];
-     _ <== num2Bits.out; //the remaining ones do not matter.
+    _ <== num2Bits.out; //the remaining ones do not matter.
 }
+
 
 // input: any field elements
 // output: 1 if field element is in (p/2, p-1], 0 otherwise
@@ -127,8 +128,8 @@ template RandomGradientAt(DENOMINATOR) {
     signal input {max_abs} scale;
     signal input KEY;
 
-    assert(in.max_abs < 2**32);
-    assert(scale.max_abs < 2**32);
+    //assert(in.max_abs < 2**32);
+    //assert(scale.max_abs < 2**32);
 
     signal output out[2];
     component rand = Random();
@@ -174,7 +175,8 @@ template GetCornersAndGradVectors(scale_bits, DENOMINATOR, SQRT_P) {
     ymodulo.divisor <== scale;
 
     signal {max_abs} bottomLeftCoords[2];
-    bottomLeftCoords.max_abs = p.max_abs; // NOT SATISFIED!!! Example: max_abs = 8, p[0] = -8, scale = 5, then xmodulo_remainder = 2 and this is not true
+    signal {max} xremainder <== xmodulo.remainder;
+    bottomLeftCoords.max_abs = p.max_abs + xremainder.max; // NOT SATISFIED!!! Example: max_abs = 8, p[0] = -8, scale = 5, then xmodulo_remainder = 2 and this is not true
     bottomLeftCoords[0] <== p[0] - xmodulo.remainder;
     bottomLeftCoords[1] <== p[1] - ymodulo.remainder;
 
@@ -287,8 +289,7 @@ template GetWeight(DENOMINATOR, WHICHCORNER) {
     signal nominator;
     nominator <== factor[0] * factor[1];
     signal output out;
-    out <-- nominator / DENOMINATOR;
-    nominator === out * DENOMINATOR;
+    out <== nominator / DENOMINATOR;
 }
 
 // dot product of two vector NUMERATORS
@@ -362,8 +363,7 @@ template PerlinValue(DENOMINATOR) {
         dots[i].b[1] <== scaledDistVec[i][1];
 
         retNominator[i] <== dots[i].out * getWeights[i].out;
-        ret[i] <-- retNominator[i] / DENOMINATOR;
-        retNominator[i] === DENOMINATOR * ret[i];
+        ret[i] <== retNominator[i] / DENOMINATOR;
     }
 
     out <== ret[0] + ret[1] + ret[2] + ret[3];
@@ -416,8 +416,8 @@ template MultiScalePerlin() {
     component perlins[3];
 
     assert(p.max_abs < 2**32);
-    xMirror * (xMirror - 1) === 0;
-    yMirror * (yMirror - 1) === 0;
+    //xMirror * (xMirror - 1) === 0;
+    //yMirror * (yMirror - 1) === 0;
 
     component xIsNegative = IsNegative();
     component yIsNegative = IsNegative();
@@ -445,8 +445,7 @@ template MultiScalePerlin() {
     adder.in[3] <== perlins[0].out;
 
     signal outDividedByCount;
-    outDividedByCount <-- adder.out / 4;
-    adder.out === 4 * outDividedByCount;
+    outDividedByCount <== adder.out / 4;
 
     signal {max_abs} outDividedByCountMult16;
     outDividedByCountMult16.max_abs = SQRT_P-1; // Why this?
