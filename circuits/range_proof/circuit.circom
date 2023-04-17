@@ -1,7 +1,7 @@
 pragma circom 2.0.3;
 
-include "../../node_modules/circomlib/circuits/comparators.circom";
-include "../../node_modules/circomlib/circuits/bitify.circom";
+include "circuits/comparators.circom";
+include "circuits/bitify.circom";
 
 // NB: RangeProof is inclusive.
 // input: field element, whose abs is claimed to be <= than max_abs_value
@@ -32,15 +32,10 @@ template RangeProof(bits) {
 
 // input: n field elements, whose abs are claimed to be less than max_abs_value
 // output: none
-template MultiRangeProof(n, bits) {
+template MultiRangeProof(n, max_abs) {
     signal input in[n];
-    signal input max_abs_value;
-    component rangeProofs[n];
-
     for (var i = 0; i < n; i++) {
-        rangeProofs[i] = RangeProof(bits);
-        rangeProofs[i].in <== in[i];
-        rangeProofs[i].max_abs_value <== max_abs_value;
+        _ <== AddMaxAbsValueTag(max_abs)(in[i]);
     }
 }
 

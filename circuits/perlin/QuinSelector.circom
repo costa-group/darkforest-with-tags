@@ -1,9 +1,10 @@
-pragma circom 2.0.3;
+pragma circom 2.1.4;
 
-include "../../node_modules/circomlib/circuits/comparators.circom";
+include "circuits/comparators.circom";
 include "CalculateTotal.circom";
+include "circuits/multiplexer.circom";
 
-template QuinSelector(choices) {
+/*template QuinSelector(choices) {
     signal input in[choices];
     signal input index;
     signal output out;
@@ -30,4 +31,30 @@ template QuinSelector(choices) {
 
     // Returns 0 + 0 + 0 + item
     out <== calcTotal.out;
+}*/
+
+template QuinSelector(choices) { // we do not need the max tag in index, calling to Decoder_strict ensures it
+    signal input in[choices];
+    signal input index;
+    signal output out;
+
+    component calcTotal = CalculateTotal(choices);
+
+    // We can remove constraints... The behavior is the same as Decoder_strict.
+
+    signal {binary} inp_decoded[choices] <== Decoder_strict(choices)(index);
+
+
+    // For each item, check whether its index equals the input index.
+    for (var i = 0; i < choices; i ++) {
+
+        // inp_decoded[i] is 1 if the index matches. As such, at most one input to
+        // calcTotal is not 0.
+        calcTotal.in[i] <== inp_decoded[i] * in[i];
+    }
+
+    // Returns 0 + 0 + 0 + item
+    out <== calcTotal.out;
+
+// Total non linear: 2 * choices
 }
