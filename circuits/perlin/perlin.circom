@@ -6,11 +6,11 @@ include "circuits/sign.circom";
 include "circuits/bitify.circom";
 include "../range_proof/circuit.circom";
 include "QuinSelector.circom";
-include "circuits/tags-managing.circom";
+//include "circuits/tags_specifications.circom";
 
 // input: three field elements: x, y, scale (all absolute value < 2^32)
 // output: pseudorandom integer in [0, 15]
-template Random() { // TAGS NOT SATISFIED, SEE BELOW
+template Random() {
     signal input {max_abs} in[3];
     signal input KEY;
     signal output {max} out;
@@ -24,19 +24,18 @@ template Random() { // TAGS NOT SATISFIED, SEE BELOW
     mimc.ins[2] <== in[2];
     mimc.k <== KEY;
 
-    component num2Bits = Num2Bits_strict();
+    component num2Bits = Num2Bits(254);
     num2Bits.in <== mimc.outs[0];
     out.max = 15;
     out <== num2Bits.out[3] * 8 + num2Bits.out[2] * 4 + num2Bits.out[1] * 2 + num2Bits.out[0];
     _ <== num2Bits.out; //the remaining ones do not matter.
 }
 
-
 // input: any field elements
 // output: 1 if field element is in (p/2, p-1], 0 otherwise
 /*template IsNegative() {
     signal input in;
-    signal output out;
+    signal output {binary} out;
 
     component num2Bits = Num2Bits(254);
     num2Bits.in <== in;
@@ -81,7 +80,7 @@ template Modulo(divisor_bits, SQRT_P) {
     raw_remainder <-- abs_dividend % divisor;
 
     signal output neg_remainder;
-    neg_remainder <-- divisor - raw_remainder;
+    neg_remainder <== divisor - raw_remainder;
 
     // 0xsage: https://github.com/0xSage/nightmarket/blob/fc4e5264436c75d37940fead3f47d650927a9120/circuits/list/Perlin.circom#L93-L108
     component raw_rem_is_zero = IsZero();
@@ -93,27 +92,30 @@ template Modulo(divisor_bits, SQRT_P) {
     signal {binary} iff;
     iff <== is_dividend_negative * raw_rem_not_zero;
 
-    signal is_neg_remainder;
+    signal is_neg_remainder; //it looks like binary but not.
     is_neg_remainder <== neg_remainder * iff;
 
     signal {binary} elsef;
     elsef <== 1 - iff;
 
-    remainder.max = SQRT_P*SQRT_P-1; // more precise if we use divisor.max
+    remainder.max = SQRT_P*SQRT_P-1;
     remainder <== raw_remainder * elsef + is_neg_remainder;
+    //remainder <== AddMaxValueTag(SQRT_P*SQRT_P-1)(raw_remainder * elsef + is_neg_remainder);
 
     quotient.max_abs = SQRT_P;
     quotient <-- (dividend - remainder) / divisor; // (-8 - 2) / 5 = -2.
-
+    //quotient <== AddMaxValueTag(SQRT_P)(quotient_aux);
     dividend === divisor * quotient + remainder; // -8 = 5 * -2 + 2.
 
-    component rp = MultiRangeProof(3, SQRT_P);
+    //Maybe, we should change {max} divisor, quotient to max_abs?
+    component rp = MultiRangeProof(3, nbits(SQRT_P)+1);
+    //rp.in.max_abs_value <== SQRT_P;
     rp.in[0] <== divisor;
     rp.in[1] <== quotient;
     rp.in[2] <== dividend;
 
     // check that 0 <= remainder < divisor
-    component remainderUpper = LessThan(divisor_bits);
+    component remainderUpper = LessThan(nbits(divisor.max)+1);
     remainderUpper.in[0] <== remainder;
     remainderUpper.in[1] <== divisor;
     remainderUpper.out === 1;
@@ -146,14 +148,14 @@ template RandomGradientAt(DENOMINATOR) {
     xSelector.index <== rand.out;
     ySelector.index <== rand.out;
 
-    signal vectorDenominator;
+    signal vectorDenominator; // se puede poner directamente en out[0] y out[1].
     vectorDenominator <== DENOMINATOR / 1000;
 
     out[0] <== xSelector.out * vectorDenominator;
     out[1] <== ySelector.out * vectorDenominator;
 }
 
-// input: x, y, scale (field elements absolute value < 2^32)
+// input: x, y, scale (field elements absolute value < 2^32) ¡!
 // output: 4 corners of a square with sidelen = scale (INTEGER coords)
 // and parallel array of 4 gradient vectors (NUMERATORS)
 template GetCornersAndGradVectors(scale_bits, DENOMINATOR, SQRT_P) {
@@ -177,6 +179,9 @@ template GetCornersAndGradVectors(scale_bits, DENOMINATOR, SQRT_P) {
     signal {max_abs} bottomLeftCoords[2];
     signal {max} xremainder <== xmodulo.remainder;
     bottomLeftCoords.max_abs = p.max_abs + xremainder.max; // NOT SATISFIED!!! Example: max_abs = 8, p[0] = -8, scale = 5, then xmodulo_remainder = 2 and this is not true
+    signal {max_abs} aux_scale;
+    aux_scale.max_abs = p.max_abs + xremainder.max;
+    aux_scale <== scale;
     bottomLeftCoords[0] <== p[0] - xmodulo.remainder;
     bottomLeftCoords[1] <== p[1] - ymodulo.remainder;
 
@@ -198,7 +203,7 @@ template GetCornersAndGradVectors(scale_bits, DENOMINATOR, SQRT_P) {
     component bottomLeftRandGrad = RandomGradientAt(DENOMINATOR);
     bottomLeftRandGrad.in[0] <== bottomLeftCoords[0];
     bottomLeftRandGrad.in[1] <== bottomLeftCoords[1];
-    bottomLeftRandGrad.scale <== abs_scale;
+    bottomLeftRandGrad.scale <== aux_scale;
     bottomLeftRandGrad.KEY <== KEY;
     signal bottomLeftGrad[2];
     bottomLeftGrad[0] <== bottomLeftRandGrad.out[0];
@@ -207,7 +212,7 @@ template GetCornersAndGradVectors(scale_bits, DENOMINATOR, SQRT_P) {
     component bottomRightRandGrad = RandomGradientAt(DENOMINATOR);
     bottomRightRandGrad.in[0] <== bottomRightCoords[0];
     bottomRightRandGrad.in[1] <== bottomRightCoords[1];
-    bottomRightRandGrad.scale <== abs_scale;
+    bottomRightRandGrad.scale <== aux_scale;
     bottomRightRandGrad.KEY <== KEY;
     signal bottomRightGrad[2];
     bottomRightGrad[0] <== bottomRightRandGrad.out[0];
@@ -216,7 +221,7 @@ template GetCornersAndGradVectors(scale_bits, DENOMINATOR, SQRT_P) {
     component topLeftRandGrad = RandomGradientAt(DENOMINATOR);
     topLeftRandGrad.in[0] <== topLeftCoords[0];
     topLeftRandGrad.in[1] <== topLeftCoords[1];
-    topLeftRandGrad.scale <== abs_scale;
+    topLeftRandGrad.scale <== aux_scale;
     topLeftRandGrad.KEY <== KEY;
     signal topLeftGrad[2];
     topLeftGrad[0] <== topLeftRandGrad.out[0];
@@ -225,7 +230,7 @@ template GetCornersAndGradVectors(scale_bits, DENOMINATOR, SQRT_P) {
     component topRightRandGrad = RandomGradientAt(DENOMINATOR);
     topRightRandGrad.in[0] <== topRightCoords[0];
     topRightRandGrad.in[1] <== topRightCoords[1];
-    topRightRandGrad.scale <== abs_scale;
+    topRightRandGrad.scale <== aux_scale;
     topRightRandGrad.KEY <== KEY;
     signal topRightGrad[2];
     topRightGrad[0] <== topRightRandGrad.out[0];
@@ -304,8 +309,7 @@ template Dot(DENOMINATOR) {
     prod[1] <== a[1] * b[1];
 
     sum <== prod[0] + prod[1];
-    out <-- sum / DENOMINATOR;
-    sum === out * DENOMINATOR;
+    out <== sum / DENOMINATOR;
 }
 
 // input: 4 gradient unit vectors (NUMERATORS)
@@ -394,6 +398,7 @@ template SingleScalePerlin(scale_bits, DENOMINATOR, SQRT_P) {
     out <== perlinValue.out;
 }
 
+
 template MakeFlipIfShould(){
     signal input {max_abs} in;
     signal input {binary} should_flip;
@@ -409,15 +414,14 @@ template MultiScalePerlin() {
 
     signal input {max_abs} p[2];
     signal input KEY;
-    signal input {powerof2, max}  SCALE; // power of 2 at most 16384 so that DENOMINATOR works
+    signal input {powerof2, max} SCALE; // power of 2 at most 16384 so that DENOMINATOR works
+    assert(SCALE.max <= 16384);
     signal input {binary} xMirror; // 1 is true, 0 is false
     signal input {binary} yMirror; // 1 is true, 0 is false
     signal output out;
     component perlins[3];
 
     assert(p.max_abs < 2**32);
-    //xMirror * (xMirror - 1) === 0;
-    //yMirror * (yMirror - 1) === 0;
 
     component xIsNegative = IsNegative();
     component yIsNegative = IsNegative();
@@ -446,15 +450,12 @@ template MultiScalePerlin() {
 
     signal outDividedByCount;
     outDividedByCount <== adder.out / 4;
-
     signal {max_abs} outDividedByCountMult16;
-    outDividedByCountMult16.max_abs = SQRT_P-1; // Why this?
-    outDividedByCountMult16 <== outDividedByCount*16; // ???????
-
+    outDividedByCountMult16.max_abs = SQRT_P-1;
+    outDividedByCountMult16 <== outDividedByCount*16;
     signal {max} sig_denominator;
     sig_denominator.max = SQRT_P-1;
-    sig_denominator <== DENOMINATOR; // Why this?
-
+    sig_denominator <== DENOMINATOR;
     // outDividedByCount is between [-DENOMINATOR*sqrt(2)/2, DENOMINATOR*sqrt(2)/2]
     component divBy16 = Modulo(DENOMINATOR_BITS, SQRT_P);
     divBy16.dividend <== outDividedByCountMult16;

@@ -1,6 +1,6 @@
 pragma circom 2.0.3;
 
-include "../../node_modules/circomlib/circuits/mimcsponge.circom";
+include "circuits/mimcsponge.circom";
 
 template Whitelist() {
   // Public signals

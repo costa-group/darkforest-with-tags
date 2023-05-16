@@ -93,7 +93,7 @@ template mainInit(){
     signal input y;
 
 
-    signal {powerof2, max} TaggedSCALE <== AddMaxValueTag(16384)(addPowerOf2Tag()(SCALE));
+    signal {powerof2, max} TaggedSCALE <== AddMaxValueTag(16384)(AddPowerOf2Tag()(SCALE));
     signal output (pub, perl) <== Init()(r, PLANETHASH_KEY, SPACETYPE_KEY, TaggedSCALE,
                                     AddBinaryTag()(xMirror),
                                     AddBinaryTag()(yMirror),

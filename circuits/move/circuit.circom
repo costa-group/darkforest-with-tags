@@ -118,7 +118,7 @@ template mainMove(){
     signal output pub2;
     signal output perl2;
 
-    signal {powerof2, max} TaggedSCALE <== AddMaxValueTag(16384)(addPowerOf2Tag()(SCALE));
+    signal {powerof2, max} TaggedSCALE <== AddMaxValueTag(16384)(AddPowerOf2Tag()(SCALE));
     (pub1,pub2,perl2) <== Move()(r,distMax, PLANETHASH_KEY,SPACETYPE_KEY,TaggedSCALE,
                                     AddBinaryTag()(xMirror),
                                     AddBinaryTag()(yMirror),
