@@ -6,8 +6,7 @@ include "circuits/sign.circom";
 include "circuits/bitify.circom";
 include "../range_proof/circuit.circom";
 include "QuinSelector.circom";
-//include "circuits/tags_specifications.circom";
-
+include "circuits/tags-managing.circom";
 // input: three field elements: x, y, scale (all absolute value < 2^32)
 // output: pseudorandom integer in [0, 15]
 template Random() {
@@ -113,7 +112,11 @@ template Modulo(divisor_bits, SQRT_P) {
     rp.in[0] <== divisor;
     rp.in[1] <== quotient;
     rp.in[2] <== dividend;
-
+    //_ <== Num2Bits(nbits(remainder.max)+1)(remainder);
+    component remainderUpper2 = LessThan(nbits(remainder.max)+1);
+    remainderUpper2.in[0] <== 0;
+    remainderUpper2.in[1] <== remainder;
+    remainderUpper2.out === 1;
     // check that 0 <= remainder < divisor
     component remainderUpper = LessThan(nbits(divisor.max)+1);
     remainderUpper.in[0] <== remainder;
@@ -465,12 +468,17 @@ template MultiScalePerlin() {
 
 // component main = MultiScalePerlin(3); // if you change this n, you also need to recompute DENOMINATOR with JS.
 template main_mod(DIV, SQRT_P){
-    signal input D;
-    signal input d;
-    signal output {max} q;
-    signal output {max} r;
-    (q,r,_,_,_,_,_) <== Modulo(DIV, SQRT_P)(AddMaxAbsValueTag(SQRT_P-1)(D),AddMaxValueTag(SQRT_P-1)(d));
+    signal {max_abs} int1;
+    int1.max_abs = 100;
+    int1 <== -8;
+    signal {max} int2;
+    int2.max = 100;
+    int2 <== 5;
+    signal output  q;
+    signal output  r;
+    (q,r,_,_,_,_,_) <== Modulo(DIV, SQRT_P)(int1,int2);
 }
+
 
 template main_Random(){
     signal input  in[3];
@@ -478,4 +486,5 @@ template main_Random(){
     signal output out;
     out <== Random()(AddMaxValueTag(10)(in),KEY);
 }
+
 
