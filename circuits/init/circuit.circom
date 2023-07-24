@@ -46,6 +46,7 @@ template Init() {
 
     /* check x^2 + y^2 > 0.98 * r^2 */
     /* equivalently 100 * (x^2 + y^2) > 98 * r^2 */
+    spec_postcondition (100 * (x**2 + y**2)) > 98 * r**2;
     component compLower = LessThan(64);
     compLower.in[0] <== rSq * 98;
     compLower.in[1] <== (xSq + ySq) * 100;

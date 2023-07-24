@@ -38,6 +38,7 @@ template Move() {
     signal output perl2;
 
     /* check x2^2 + y2^2 < r^2 */
+    spec_postcondition x2**2 + y2**2 < r**2;
 
     component comp2 = LessThan(64);
     signal x2Sq;
@@ -51,6 +52,7 @@ template Move() {
     comp2.out === 1;
 
     /* check (x1-x2)^2 + (y1-y2)^2 <= distMax^2 */
+    spec_postcondition (x1-x2)**2 + (y1-y2)**2 <= distMax**2;
 
     signal diffX;
     diffX <== x1 - x2;
@@ -95,6 +97,7 @@ template Move() {
     perlin.xMirror <== xMirror;
     perlin.yMirror <== yMirror;
     perl2 <== perlin.out;
+
 }
 
 

@@ -57,4 +57,9 @@ template QuinSelector(choices) { // we do not need the max tag in index, calling
     out <== calcTotal.out;
 
 // Total non linear: 2 * choices
+    spec_postcondition (0 <= index && index < choices);
+    //spec_postcondition (out == in[index]); cambiar por el multiplexer.
+    for (var i = 0; i < choices; i++){
+           spec_postcondition (!(index == i)) || (out == in[i]);
+    }
 }

@@ -28,11 +28,12 @@ template Random() {
     out.max = 15;
     out <== num2Bits.out[3] * 8 + num2Bits.out[2] * 4 + num2Bits.out[1] * 2 + num2Bits.out[0];
     _ <== num2Bits.out; //the remaining ones do not matter.
+
 }
 
 // input: any field elements
 // output: 1 if field element is in (p/2, p-1], 0 otherwise
-/*template IsNegative() {
+template IsNegative() {
     signal input in;
     signal output {binary} out;
 
@@ -45,7 +46,7 @@ template Random() {
     }
 
     out <== sign.sign;
-}*/
+}
 
 // input: dividend and divisor field elements in [0, sqrt(p))
 // output: remainder and quotient field elements in [0, p-1] and [0, sqrt(p)
@@ -57,7 +58,7 @@ template Random() {
 template Modulo(divisor_bits, SQRT_P) {
     signal input {max_abs} dividend; // -8
     signal input {max} divisor; // 5
-    signal output {max} remainder; // 2
+    signal output {max, maxbit} remainder; // 2
     signal output {max_abs} quotient; // -2
 
     assert(dividend.max_abs < SQRT_P); // then it is not needed to calculate the max_abs in MultiRangeProof
@@ -80,7 +81,6 @@ template Modulo(divisor_bits, SQRT_P) {
 
     signal output neg_remainder;
     neg_remainder <== divisor - raw_remainder;
-
     // 0xsage: https://github.com/0xSage/nightmarket/blob/fc4e5264436c75d37940fead3f47d650927a9120/circuits/list/Perlin.circom#L93-L108
     component raw_rem_is_zero = IsZero();
     raw_rem_is_zero.in <== raw_remainder;
@@ -98,6 +98,7 @@ template Modulo(divisor_bits, SQRT_P) {
     elsef <== 1 - iff;
 
     remainder.max = SQRT_P*SQRT_P-1;
+    remainder.maxbit = nbits(divisor.max)+1;
     remainder <== raw_remainder * elsef + is_neg_remainder;
     //remainder <== AddMaxValueTag(SQRT_P*SQRT_P-1)(raw_remainder * elsef + is_neg_remainder);
 
@@ -112,16 +113,29 @@ template Modulo(divisor_bits, SQRT_P) {
     rp.in[0] <== divisor;
     rp.in[1] <== quotient;
     rp.in[2] <== dividend;
-    //_ <== Num2Bits(nbits(remainder.max)+1)(remainder);
+    _ <== Num2Bits(nbits(remainder.max)+1)(remainder);
     component remainderUpper2 = LessThan(nbits(remainder.max)+1);
-    remainderUpper2.in[0] <== 0;
+    signal {maxbit} zero;
+    zero.maxbit = nbits(divisor.max)+1;
+    zero <== 0;
+    remainderUpper2.in[0] <== zero;
     remainderUpper2.in[1] <== remainder;
     remainderUpper2.out === 1;
     // check that 0 <= remainder < divisor
     component remainderUpper = LessThan(nbits(divisor.max)+1);
     remainderUpper.in[0] <== remainder;
-    remainderUpper.in[1] <== divisor;
+    signal {maxbit} divisor_aux;
+    divisor_aux.maxbit = nbits(divisor.max)+1; divisor_aux <== divisor;
+    remainderUpper.in[1] <== divisor_aux;
     remainderUpper.out === 1;
+
+    spec_postcondition remainder < divisor;
+    //spec_postcondition dividend % prime_number == (divisor*quotient + remainder) % prime_number;
+    spec_postcondition dividend % 21888242871839275222246405745257275088548364400416034343698204186575808495617 ==
+                ((divisor * quotient + remainder) % 21888242871839275222246405745257275088548364400416034343698204186575808495617);
+    //spec_postcondition (remainder % 21888242871839275222246405745257275088548364400416034343698204186575808495617 == ((dividend % divisor) % 21888242871839275222246405745257275088548364400416034343698204186575808495617)) ||
+    //(remainder % 21888242871839275222246405745257275088548364400416034343698204186575808495617 == ((21888242871839275222246405745257275088548364400416034343698204186575808495617 - dividend) % divisor) % 21888242871839275222246405745257275088548364400416034343698204186575808495617);
+
 }
 
 // input: three field elements x, y, scale (all absolute value < 2^32)
@@ -408,6 +422,9 @@ template MakeFlipIfShould(){
     signal output {max_abs} out;
     out.max_abs = in.max_abs;
     out <== in * (-2 * should_flip + 1);
+    //spec_precondition (should_flip >= 0 && should_flip <= 1); unnecessary thanks to tag binary.
+    spec_postcondition (should_flip == 1 && in == ((-out) % 21888242871839275222246405745257275088548364400416034343698204186575808495617))
+                || (should_flip == 0 && out == in);
 }
 
 template MultiScalePerlin() {
@@ -469,10 +486,10 @@ template MultiScalePerlin() {
 // component main = MultiScalePerlin(3); // if you change this n, you also need to recompute DENOMINATOR with JS.
 template main_mod(DIV, SQRT_P){
     signal {max_abs} int1;
-    int1.max_abs = 100;
+    int1.max_abs = 10;
     int1 <== -8;
     signal {max} int2;
-    int2.max = 100;
+    int2.max = 10;
     int2 <== 5;
     signal output  q;
     signal output  r;
@@ -484,7 +501,13 @@ template main_Random(){
     signal input  in[3];
     signal input KEY;
     signal output out;
-    out <== Random()(AddMaxValueTag(10)(in),KEY);
+    out <== Random()(AddMaxAbsValueArrayTag(254,3)(in),KEY);
 }
 
 
+template makeflip(){
+    signal input in;
+    signal input should_flip;
+    signal output out;
+    out <== MakeFlipIfShould()(AddMaxAbsValueTag(254)(in),AddBinaryTag()(should_flip));
+}
