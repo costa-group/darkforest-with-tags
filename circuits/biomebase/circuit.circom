@@ -46,7 +46,7 @@ template Biomebase() {
     hash <== mimc.outs[0];
 
     /* check perlin(x, y) = p */
-    component perlin = MultiScalePerlin();
+  component perlin = MultiScalePerlin();
     signal {max_abs} p[2];
     p.max_abs = x.max_abs > y.max_abs ? x.max_abs : y.max_abs;
     p <== [x,y];
@@ -57,6 +57,7 @@ template Biomebase() {
     perlin.KEY <== BIOMEBASE_KEY;
     biomeBase <== perlin.out;
 }
+
 
 template mainBiomebase() {
     // Public signals

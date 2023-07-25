@@ -33,23 +33,27 @@ template Init() {
 
 
     /* check x^2 + y^2 < r^2 */
+    spec_postcondition (x*x + y*y) < r*r;
     component compUpper = LessThan(64);
     signal xSq;
     signal ySq;
-    signal rSq;
+    signal {maxbit} rSq; rSq.maxbit = 64;
     xSq <== x * x;
     ySq <== y * y;
     rSq <== r * r;
-    compUpper.in[0] <== xSq + ySq;
+    signal {maxbit} aux; aux.maxbit = 64; aux <== xSq + ySq;
+    compUpper.in[0] <== aux;
     compUpper.in[1] <== rSq;
     compUpper.out === 1;
 
     /* check x^2 + y^2 > 0.98 * r^2 */
     /* equivalently 100 * (x^2 + y^2) > 98 * r^2 */
-    spec_postcondition (100 * (x**2 + y**2)) > 98 * r**2;
+    spec_postcondition (100 * (x*x + y*y)) > 98 * r*r;
     component compLower = LessThan(64);
-    compLower.in[0] <== rSq * 98;
-    compLower.in[1] <== (xSq + ySq) * 100;
+    signal {maxbit} aux2; aux2.maxbit = 64; rSq * 98 ==> aux2;
+    compLower.in[0] <== aux2;
+    signal {maxbit} aux3; aux3.maxbit = 64; (xSq + ySq) * 100 ==> aux3;
+    compLower.in[1] <==  aux3;
     compLower.out === 1;
 
     /* check MiMCSponge(x,y) = pub */

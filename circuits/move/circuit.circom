@@ -38,21 +38,22 @@ template Move() {
     signal output perl2;
 
     /* check x2^2 + y2^2 < r^2 */
-    spec_postcondition x2**2 + y2**2 < r**2;
+    spec_postcondition x2*x2 + y2*y2 < r*r;
 
     component comp2 = LessThan(64);
     signal x2Sq;
     signal y2Sq;
-    signal rSq;
+    signal {maxbit} rSq; rSq.maxbit = 64;
     x2Sq <== x2 * x2;
     y2Sq <== y2 * y2;
     rSq <== r * r;
-    comp2.in[0] <== x2Sq + y2Sq;
+    signal {maxbit} aux; aux.maxbit = 64; aux <== x2Sq + y2Sq;
+    comp2.in[0] <== aux;
     comp2.in[1] <== rSq;
     comp2.out === 1;
 
     /* check (x1-x2)^2 + (y1-y2)^2 <= distMax^2 */
-    spec_postcondition (x1-x2)**2 + (y1-y2)**2 <= distMax**2;
+    spec_postcondition (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2) <= distMax*distMax;
 
     signal diffX;
     diffX <== x1 - x2;
@@ -64,8 +65,12 @@ template Move() {
     signal secondDistSquare;
     firstDistSquare <== diffX * diffX;
     secondDistSquare <== diffY * diffY;
-    ltDist.in[0] <== firstDistSquare + secondDistSquare;
-    ltDist.in[1] <== distMax * distMax + 1;
+    signal {maxbit} auxSquare; auxSquare.maxbit = 64;
+    firstDistSquare + secondDistSquare ==> auxSquare;
+    ltDist.in[0] <== auxSquare;
+    signal {maxbit} auxDist; auxDist.maxbit = 64;
+    distMax * distMax + 1 ==> auxDist;
+    ltDist.in[1] <== auxDist;
     ltDist.out === 1;
 
     /* check MiMCSponge(x1,y1) = pub1, MiMCSponge(x2,y2) = pub2 */
